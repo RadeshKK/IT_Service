@@ -98,26 +98,26 @@ cp client/env.example client/.env
 
 **Server Environment Variables** (`server/.env`):
 ```env
-# Database
+# Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=smart_it_tracker
-DB_USER=your_username
-DB_PASSWORD=your_password
+DB_USER=your_database_username
+DB_PASSWORD=your_database_password
 
-# JWT
-JWT_SECRET=your_super_secret_jwt_key
+# JWT Secret (generate a strong secret)
+JWT_SECRET=your_jwt_secret_key
 
-# Email (SMTP)
+# Email Configuration (SMTP)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASS=your_app_password
+SMTP_USER=your_email@domain.com
+SMTP_PASS=your_email_password
 
-# OpenAI
+# OpenAI API Key
 OPENAI_API_KEY=your_openai_api_key
 
-# Server
+# Server Configuration
 PORT=5000
 NODE_ENV=development
 CLIENT_URL=http://localhost:3000
@@ -292,7 +292,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Documentation**: [Wiki](https://github.com/yourusername/smart-it-tracker/wiki)
 - **Issues**: [GitHub Issues](https://github.com/yourusername/smart-it-tracker/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/smart-it-tracker/discussions)
 
