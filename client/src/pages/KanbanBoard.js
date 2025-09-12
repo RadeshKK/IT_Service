@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -25,6 +25,24 @@ const getPriorityColor = (priority) => {
     case 'low': return 'text-green-600 bg-green-100';
     default: return 'text-gray-600 bg-gray-100';
   }
+};
+
+// Droppable Column Component
+const DroppableColumn = ({ column, children }) => {
+  const { isOver, setNodeRef } = useDroppable({
+    id: column.id,
+  });
+
+  return (
+    <div 
+      ref={setNodeRef}
+      className={`min-h-96 space-y-3 p-2 rounded-lg border-2 border-dashed ${
+        isOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300'
+      }`}
+    >
+      {children}
+    </div>
+  );
 };
 
 // Sortable Ticket Component
@@ -151,6 +169,7 @@ const KanbanBoard = () => {
   const handleDragStart = (event) => {
     const { active } = event;
     const ticket = tickets.find(t => t.id === active.id);
+    console.log('Drag started for ticket:', ticket);
     setActiveTicket(ticket);
   };
 
@@ -163,9 +182,21 @@ const KanbanBoard = () => {
     const ticketId = active.id;
     const newStatus = over.id;
 
+    console.log('Drag end - Ticket ID:', ticketId, 'New Status:', newStatus);
+
     // Find the ticket
     const ticket = tickets.find(t => t.id === ticketId);
-    if (!ticket || ticket.status === newStatus) return;
+    if (!ticket) {
+      console.error('Ticket not found:', ticketId);
+      return;
+    }
+
+    if (ticket.status === newStatus) {
+      console.log('Status unchanged, skipping update');
+      return;
+    }
+
+    console.log('Updating ticket from', ticket.status, 'to', newStatus);
 
     // Optimistic update
     const updatedTickets = tickets.map(t => 
@@ -175,7 +206,9 @@ const KanbanBoard = () => {
 
     try {
       // Update ticket status on server
-      await ticketsAPI.updateTicket(ticketId, { status: newStatus });
+      console.log('Sending API request to update ticket...');
+      const response = await ticketsAPI.updateTicket(ticketId, { status: newStatus });
+      console.log('API response:', response);
       toast.success(`Ticket moved to ${columns.find(c => c.id === newStatus)?.title}`);
     } catch (error) {
       console.error('Error updating ticket status:', error);
@@ -187,19 +220,9 @@ const KanbanBoard = () => {
 
   const handleDragOver = (event) => {
     const { active, over } = event;
-    if (!over) return;
-
-    const ticketId = active.id;
-    const newStatus = over.id;
-
-    const ticket = tickets.find(t => t.id === ticketId);
-    if (!ticket || ticket.status === newStatus) return;
-
-    // Update local state for visual feedback
-    const updatedTickets = tickets.map(t => 
-      t.id === ticketId ? { ...t, status: newStatus } : t
-    );
-    setTickets(updatedTickets);
+    if (over) {
+      console.log('Drag over:', over.id);
+    }
   };
 
   const getPriorityColor = (priority) => {
@@ -322,10 +345,7 @@ const KanbanBoard = () => {
                     </span>
                   </div>
 
-                  <div 
-                    id={column.id}
-                    className="min-h-96 space-y-3 p-2 rounded-lg border-2 border-dashed border-gray-300"
-                  >
+                  <DroppableColumn column={column}>
                     <SortableContext items={columnTickets.map(t => t.id)} strategy={verticalListSortingStrategy}>
                       {columnTickets.map((ticket) => (
                         <SortableTicket 
@@ -335,7 +355,7 @@ const KanbanBoard = () => {
                         />
                       ))}
                     </SortableContext>
-                  </div>
+                  </DroppableColumn>
                 </div>
               );
             })}
