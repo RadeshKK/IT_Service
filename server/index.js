@@ -16,19 +16,25 @@ const PORT = process.env.PORT || 5000;
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use(limiter);
+// Rate limiting - disabled for development
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100, // limit each IP to 100 requests per windowMs
+//   message: 'Too many requests from this IP, please try again later.'
+// });
+// app.use(limiter);
 
 // CORS configuration
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

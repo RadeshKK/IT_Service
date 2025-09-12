@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { ticketsAPI, usersAPI } from '../services/api';
 import { 
   Plus, 
@@ -13,6 +16,57 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Helper function for priority colors
+const getPriorityColor = (priority) => {
+  switch (priority) {
+    case 'urgent': return 'text-red-600 bg-red-100';
+    case 'high': return 'text-orange-600 bg-orange-100';
+    case 'medium': return 'text-yellow-600 bg-yellow-100';
+    case 'low': return 'text-green-600 bg-green-100';
+    default: return 'text-gray-600 bg-gray-100';
+  }
+};
+
+// Sortable Ticket Component
+const SortableTicket = ({ ticket, onStatusChange }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: ticket.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-3 cursor-grab hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start justify-between mb-2">
+        <h3 className="font-medium text-gray-900 text-sm">{ticket.title}</h3>
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(ticket.priority)}`}>
+          {ticket.priority}
+        </span>
+      </div>
+      <p className="text-gray-600 text-sm mb-3 line-clamp-2">{ticket.description}</p>
+      <div className="flex items-center justify-between text-xs text-gray-500">
+        <span>#{ticket.id}</span>
+        <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+      </div>
+    </div>
+  );
+};
+
 const KanbanBoard = () => {
   const [tickets, setTickets] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -22,6 +76,15 @@ const KanbanBoard = () => {
     priority: '',
     search: ''
   });
+  const [activeTicket, setActiveTicket] = useState(null);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const columns = [
     { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
@@ -39,7 +102,6 @@ const KanbanBoard = () => {
       setLoading(true);
       const [ticketsResponse, agentsResponse] = await Promise.all([
         ticketsAPI.getTickets({
-          status: 'todo,in_progress,resolved,closed',
           assignee: filters.assignee || undefined,
           priority: filters.priority || undefined,
           search: filters.search || undefined
@@ -47,6 +109,7 @@ const KanbanBoard = () => {
         usersAPI.getAgents()
       ]);
 
+      console.log('Fetched tickets:', ticketsResponse.data.tickets);
       setTickets(ticketsResponse.data.tickets);
       setAgents(agentsResponse.data.agents);
     } catch (error) {
@@ -57,25 +120,17 @@ const KanbanBoard = () => {
     }
   };
 
-  const handleDragEnd = async (result) => {
-    const { destination, source, draggableId } = result;
-
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-
-    const ticketId = parseInt(draggableId);
-    const newStatus = destination.droppableId;
-
-    // Optimistic update
-    setTickets(prevTickets => 
-      prevTickets.map(ticket => 
-        ticket.id === ticketId 
-          ? { ...ticket, status: newStatus }
-          : ticket
-      )
-    );
-
+  const handleStatusChange = async (ticketId, newStatus) => {
     try {
+      // Optimistic update
+      setTickets(prevTickets => 
+        prevTickets.map(ticket => 
+          ticket.id === ticketId 
+            ? { ...ticket, status: newStatus }
+            : ticket
+        )
+      );
+
       await ticketsAPI.updateTicket(ticketId, { status: newStatus });
       toast.success('Ticket status updated');
     } catch (error) {
@@ -87,7 +142,64 @@ const KanbanBoard = () => {
   };
 
   const getTicketsByStatus = (status) => {
-    return tickets.filter(ticket => ticket.status === status);
+    const filteredTickets = tickets.filter(ticket => ticket.status === status);
+    console.log(`Tickets for status ${status}:`, filteredTickets);
+    return filteredTickets;
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (event) => {
+    const { active } = event;
+    const ticket = tickets.find(t => t.id === active.id);
+    setActiveTicket(ticket);
+  };
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    setActiveTicket(null);
+
+    if (!over) return;
+
+    const ticketId = active.id;
+    const newStatus = over.id;
+
+    // Find the ticket
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket || ticket.status === newStatus) return;
+
+    // Optimistic update
+    const updatedTickets = tickets.map(t => 
+      t.id === ticketId ? { ...t, status: newStatus } : t
+    );
+    setTickets(updatedTickets);
+
+    try {
+      // Update ticket status on server
+      await ticketsAPI.updateTicket(ticketId, { status: newStatus });
+      toast.success(`Ticket moved to ${columns.find(c => c.id === newStatus)?.title}`);
+    } catch (error) {
+      console.error('Error updating ticket status:', error);
+      toast.error('Failed to update ticket status');
+      // Revert optimistic update
+      fetchData();
+    }
+  };
+
+  const handleDragOver = (event) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const ticketId = active.id;
+    const newStatus = over.id;
+
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket || ticket.status === newStatus) return;
+
+    // Update local state for visual feedback
+    const updatedTickets = tickets.map(t => 
+      t.id === ticketId ? { ...t, status: newStatus } : t
+    );
+    setTickets(updatedTickets);
   };
 
   const getPriorityColor = (priority) => {
@@ -132,7 +244,7 @@ const KanbanBoard = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Kanban Board</h1>
           <p className="mt-2 text-gray-600">
-            Drag and drop tickets between columns to update their status.
+            Click on tickets to update their status.
           </p>
         </div>
 
@@ -190,7 +302,13 @@ const KanbanBoard = () => {
         </div>
 
         {/* Kanban Board */}
-        <DragDropContext onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragOver={handleDragOver}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {columns.map((column) => {
               const columnTickets = getTicketsByStatus(column.id);
@@ -204,79 +322,43 @@ const KanbanBoard = () => {
                     </span>
                   </div>
 
-                  <Droppable droppableId={column.id}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`min-h-96 space-y-3 ${
-                          snapshot.isDraggingOver ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        {columnTickets.map((ticket, index) => (
-                          <Draggable
-                            key={ticket.id}
-                            draggableId={ticket.id.toString()}
-                            index={index}
-                          >
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`kanban-card ${
-                                  snapshot.isDragging ? 'dragging' : ''
-                                }`}
-                              >
-                                <div className="flex items-start justify-between mb-2">
-                                  <h4 className="font-medium text-gray-900 text-sm line-clamp-2">
-                                    #{ticket.id} {ticket.title}
-                                  </h4>
-                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(ticket.priority)}`}>
-                                    {getPriorityIcon(ticket.priority)}
-                                    <span className="ml-1">{ticket.priority.toUpperCase()}</span>
-                                  </span>
-                                </div>
-
-                                <p className="text-gray-600 text-sm line-clamp-3 mb-3">
-                                  {ticket.description}
-                                </p>
-
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <div className="flex items-center">
-                                    <User className="w-3 h-3 mr-1" />
-                                    {ticket.assignee_first_name ? (
-                                      <span>{ticket.assignee_first_name} {ticket.assignee_last_name}</span>
-                                    ) : (
-                                      <span>Unassigned</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center">
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    {formatDate(ticket.created_at)}
-                                  </div>
-                                </div>
-
-                                {ticket.category && (
-                                  <div className="mt-2">
-                                    <span className="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                                      {ticket.category}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
+                  <div 
+                    id={column.id}
+                    className="min-h-96 space-y-3 p-2 rounded-lg border-2 border-dashed border-gray-300"
+                  >
+                    <SortableContext items={columnTickets.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                      {columnTickets.map((ticket) => (
+                        <SortableTicket 
+                          key={ticket.id} 
+                          ticket={ticket} 
+                          onStatusChange={handleStatusChange}
+                        />
+                      ))}
+                    </SortableContext>
+                  </div>
                 </div>
               );
             })}
           </div>
-        </DragDropContext>
+
+          <DragOverlay>
+            {activeTicket ? (
+              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 opacity-90">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-medium text-gray-900 text-sm">{activeTicket.title}</h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(activeTicket.priority)}`}>
+                    {activeTicket.priority}
+                  </span>
+                </div>
+                <p className="text-gray-600 text-sm mb-3 line-clamp-2">{activeTicket.description}</p>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>#{activeTicket.id}</span>
+                  <span>{new Date(activeTicket.created_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
 
         {/* Empty State */}
         {tickets.length === 0 && (
