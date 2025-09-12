@@ -1,0 +1,22 @@
+{
+  "name": "smart-it-service-tracker",
+  "version": "1.0.0",
+  "description": "Smart IT Service Request & Issue Tracking System with AI capabilities",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "setup": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "keywords": ["it-service", "ticket-tracking", "ai", "kanban", "support"],
+  "author": "IT Service Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "jest": "^29.7.0"
+  }
+}

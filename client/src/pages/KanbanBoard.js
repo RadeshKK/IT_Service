@@ -1,0 +1,298 @@
+import React, { useState, useEffect } from 'react';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { ticketsAPI, usersAPI } from '../services/api';
+import { 
+  Plus, 
+  Filter, 
+  Search, 
+  User, 
+  Clock, 
+  AlertTriangle,
+  CheckCircle,
+  X
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+
+const KanbanBoard = () => {
+  const [tickets, setTickets] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    assignee: '',
+    priority: '',
+    search: ''
+  });
+
+  const columns = [
+    { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
+    { id: 'in_progress', title: 'In Progress', color: 'bg-yellow-100' },
+    { id: 'resolved', title: 'Resolved', color: 'bg-green-100' },
+    { id: 'closed', title: 'Closed', color: 'bg-red-100' }
+  ];
+
+  useEffect(() => {
+    fetchData();
+  }, [filters]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [ticketsResponse, agentsResponse] = await Promise.all([
+        ticketsAPI.getTickets({
+          status: 'todo,in_progress,resolved,closed',
+          assignee: filters.assignee || undefined,
+          priority: filters.priority || undefined,
+          search: filters.search || undefined
+        }),
+        usersAPI.getAgents()
+      ]);
+
+      setTickets(ticketsResponse.data.tickets);
+      setAgents(agentsResponse.data.agents);
+    } catch (error) {
+      console.error('Error fetching kanban data:', error);
+      toast.error('Failed to load tickets');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDragEnd = async (result) => {
+    const { destination, source, draggableId } = result;
+
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+    const ticketId = parseInt(draggableId);
+    const newStatus = destination.droppableId;
+
+    // Optimistic update
+    setTickets(prevTickets => 
+      prevTickets.map(ticket => 
+        ticket.id === ticketId 
+          ? { ...ticket, status: newStatus }
+          : ticket
+      )
+    );
+
+    try {
+      await ticketsAPI.updateTicket(ticketId, { status: newStatus });
+      toast.success('Ticket status updated');
+    } catch (error) {
+      console.error('Error updating ticket status:', error);
+      toast.error('Failed to update ticket status');
+      // Revert optimistic update
+      fetchData();
+    }
+  };
+
+  const getTicketsByStatus = (status) => {
+    return tickets.filter(ticket => ticket.status === status);
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'urgent': return 'text-red-600 bg-red-100';
+      case 'high': return 'text-orange-600 bg-orange-100';
+      case 'medium': return 'text-yellow-600 bg-yellow-100';
+      case 'low': return 'text-blue-600 bg-blue-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getPriorityIcon = (priority) => {
+    switch (priority) {
+      case 'urgent': return <AlertTriangle className="w-3 h-3" />;
+      case 'high': return <AlertTriangle className="w-3 h-3" />;
+      case 'medium': return <Clock className="w-3 h-3" />;
+      case 'low': return <CheckCircle className="w-3 h-3" />;
+      default: return <Clock className="w-3 h-3" />;
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Kanban Board</h1>
+          <p className="mt-2 text-gray-600">
+            Drag and drop tickets between columns to update their status.
+          </p>
+        </div>
+
+        {/* Filters */}
+        <div className="card mb-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex-1 min-w-64">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search tickets..."
+                  value={filters.search}
+                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                  className="pl-10 input"
+                />
+              </div>
+            </div>
+
+            <select
+              value={filters.assignee}
+              onChange={(e) => setFilters({ ...filters, assignee: e.target.value })}
+              className="input w-48"
+            >
+              <option value="">All Assignees</option>
+              {agents.map(agent => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.first_name} {agent.last_name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.priority}
+              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+              className="input w-32"
+            >
+              <option value="">All Priorities</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+
+            {(filters.assignee || filters.priority || filters.search) && (
+              <button
+                onClick={() => setFilters({ assignee: '', priority: '', search: '' })}
+                className="btn btn-secondary flex items-center"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Kanban Board */}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {columns.map((column) => {
+              const columnTickets = getTicketsByStatus(column.id);
+              
+              return (
+                <div key={column.id} className="kanban-column">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-medium text-gray-900">{column.title}</h3>
+                    <span className="bg-gray-200 text-gray-700 text-xs font-medium px-2 py-1 rounded-full">
+                      {columnTickets.length}
+                    </span>
+                  </div>
+
+                  <Droppable droppableId={column.id}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`min-h-96 space-y-3 ${
+                          snapshot.isDraggingOver ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        {columnTickets.map((ticket, index) => (
+                          <Draggable
+                            key={ticket.id}
+                            draggableId={ticket.id.toString()}
+                            index={index}
+                          >
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className={`kanban-card ${
+                                  snapshot.isDragging ? 'dragging' : ''
+                                }`}
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <h4 className="font-medium text-gray-900 text-sm line-clamp-2">
+                                    #{ticket.id} {ticket.title}
+                                  </h4>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(ticket.priority)}`}>
+                                    {getPriorityIcon(ticket.priority)}
+                                    <span className="ml-1">{ticket.priority.toUpperCase()}</span>
+                                  </span>
+                                </div>
+
+                                <p className="text-gray-600 text-sm line-clamp-3 mb-3">
+                                  {ticket.description}
+                                </p>
+
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                  <div className="flex items-center">
+                                    <User className="w-3 h-3 mr-1" />
+                                    {ticket.assignee_first_name ? (
+                                      <span>{ticket.assignee_first_name} {ticket.assignee_last_name}</span>
+                                    ) : (
+                                      <span>Unassigned</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    {formatDate(ticket.created_at)}
+                                  </div>
+                                </div>
+
+                                {ticket.category && (
+                                  <div className="mt-2">
+                                    <span className="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                                      {ticket.category}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </div>
+              );
+            })}
+          </div>
+        </DragDropContext>
+
+        {/* Empty State */}
+        {tickets.length === 0 && (
+          <div className="text-center py-12">
+            <div className="mx-auto h-12 w-12 text-gray-400">
+              <Filter className="w-full h-full" />
+            </div>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No tickets found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Try adjusting your filters or create a new ticket.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default KanbanBoard;
