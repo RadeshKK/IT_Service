@@ -9,7 +9,8 @@
     "client": "cd client && npm start",
     "build": "cd client && npm run build",
     "build:client": "cd client && npm install && npm run build",
-    "deploy:frontend": "npm run build:client",
+    "build:frontend": "cd client && npm install && npm run build",
+    "deploy:frontend": "npm run build:frontend",
     "test": "jest",
     "test:watch": "jest --watch",
     "setup": "npm install && cd server && npm install && cd ../client && npm install"

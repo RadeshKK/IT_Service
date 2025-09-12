@@ -263,9 +263,9 @@ docker-compose up -d
 1. **Connect your GitHub repository** to Render
 2. **Create a new Static Site** service
 3. **Configure the service:**
-   - **Root Directory**: `client`
-   - **Build Command**: `npm install && npm run build`
-   - **Publish Directory**: `build`
+   - **Root Directory**: Leave empty (or set to `.`)
+   - **Build Command**: `cd client && npm install && chmod +x node_modules/.bin/react-scripts && CI=false npx react-scripts build`
+   - **Publish Directory**: `client/build`
    - **Environment Variables**:
      - `REACT_APP_API_URL`: `https://your-backend-url.onrender.com/api`
 4. **Deploy** - Render will automatically build and deploy your frontend

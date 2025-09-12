@@ -34,9 +34,9 @@ This guide will help you deploy only the frontend of the Smart IT Service Reques
 - **Environment**: `Static Site`
 - **Region**: Choose closest to your users
 - **Branch**: `main` (or your default branch)
-- **Root Directory**: `client`
-- **Build Command**: `npm install && npm run build`
-- **Publish Directory**: `build`
+- **Root Directory**: Leave empty (or set to `.`)
+- **Build Command**: `cd client && npm install && chmod +x node_modules/.bin/react-scripts && CI=false npx react-scripts build`
+- **Publish Directory**: `client/build`
 
 **Environment Variables:**
 - **Key**: `REACT_APP_API_URL`
@@ -88,6 +88,24 @@ REACT_APP_API_URL=https://your-backend-url.onrender.com/api
 - **Verify all dependencies** are in package.json
 - **Test build locally** first
 - **Check for TypeScript errors**
+
+#### Permission Denied (react-scripts)
+If you see "Permission denied" error with react-scripts, try these solutions:
+
+**Solution 1: Use the updated build command**
+```
+cd client && npm install && chmod +x node_modules/.bin/react-scripts && CI=false npx react-scripts build
+```
+
+**Solution 2: Alternative build command**
+```
+cd client && npm install && CI=false npx react-scripts build
+```
+
+**Solution 3: Use custom build script**
+```
+cd client && npm install && bash build.sh
+```
 
 #### Frontend Not Loading
 - **Verify environment variables**
