@@ -8,6 +8,8 @@
     "server": "cd server && npm run dev",
     "client": "cd client && npm start",
     "build": "cd client && npm run build",
+    "build:client": "cd client && npm install && npm run build",
+    "deploy:frontend": "npm run build:client",
     "test": "jest",
     "test:watch": "jest --watch",
     "setup": "npm install && cd server && npm install && cd ../client && npm install"

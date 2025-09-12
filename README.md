@@ -257,6 +257,23 @@ cd server && npm start
 docker-compose up -d
 ```
 
+### Render Deployment (Frontend Only)
+
+#### Static Site Deployment
+1. **Connect your GitHub repository** to Render
+2. **Create a new Static Site** service
+3. **Configure the service:**
+   - **Root Directory**: `client`
+   - **Build Command**: `npm install && npm run build`
+   - **Publish Directory**: `build`
+   - **Environment Variables**:
+     - `REACT_APP_API_URL`: `https://your-backend-url.onrender.com/api`
+4. **Deploy** - Render will automatically build and deploy your frontend
+
+**Your frontend will be available at**: `https://your-app-name.onrender.com`
+
+> **Note**: This deploys only the frontend. You'll need a separate backend API running elsewhere.
+
 ### Environment Variables for Production
 - Set `NODE_ENV=production`
 - Use strong JWT secrets
