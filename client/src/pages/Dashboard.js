@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { ticketsAPI } from '../services/api';
 import { 
   Ticket, 
-  Users, 
   Clock, 
   CheckCircle, 
   AlertTriangle,

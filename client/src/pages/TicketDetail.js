@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ticketsAPI, usersAPI } from '../services/api';
 import { 
   ArrowLeft, 
   Edit, 
-  MessageSquare, 
   User, 
   Clock, 
-  AlertTriangle,
-  CheckCircle,
   Send,
   Loader
 } from 'lucide-react';
@@ -28,12 +25,7 @@ const TicketDetail = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
 
-  useEffect(() => {
-    fetchTicketData();
-    fetchAgents();
-  }, [id]);
-
-  const fetchTicketData = async () => {
+  const fetchTicketData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await ticketsAPI.getTicket(id);
@@ -54,7 +46,12 @@ const TicketDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    fetchTicketData();
+    fetchAgents();
+  }, [fetchTicketData]);
 
   const fetchAgents = async () => {
     try {

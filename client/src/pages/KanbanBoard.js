@@ -1,17 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ticketsAPI, usersAPI } from '../services/api';
 import { 
-  Plus, 
   Filter, 
   Search, 
-  User, 
-  Clock, 
-  AlertTriangle,
-  CheckCircle,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -111,11 +106,7 @@ const KanbanBoard = () => {
     { id: 'closed', title: 'Closed', color: 'bg-red-100' }
   ];
 
-  useEffect(() => {
-    fetchData();
-  }, [filters]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [ticketsResponse, agentsResponse] = await Promise.all([
@@ -136,7 +127,11 @@ const KanbanBoard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.assignee, filters.priority, filters.search]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleStatusChange = async (ticketId, newStatus) => {
     try {
@@ -219,7 +214,7 @@ const KanbanBoard = () => {
   };
 
   const handleDragOver = (event) => {
-    const { active, over } = event;
+    const { over } = event;
     if (over) {
       console.log('Drag over:', over.id);
     }
@@ -235,22 +230,6 @@ const KanbanBoard = () => {
     }
   };
 
-  const getPriorityIcon = (priority) => {
-    switch (priority) {
-      case 'urgent': return <AlertTriangle className="w-3 h-3" />;
-      case 'high': return <AlertTriangle className="w-3 h-3" />;
-      case 'medium': return <Clock className="w-3 h-3" />;
-      case 'low': return <CheckCircle className="w-3 h-3" />;
-      default: return <Clock className="w-3 h-3" />;
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    });
-  };
 
   if (loading) {
     return (

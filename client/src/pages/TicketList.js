@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ticketsAPI, usersAPI } from '../services/api';
 import { 
@@ -6,10 +6,6 @@ import {
   Search, 
   Filter, 
   Eye, 
-  Edit, 
-  Clock,
-  AlertTriangle,
-  CheckCircle,
   User
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -31,12 +27,7 @@ const TicketList = () => {
     search: ''
   });
 
-  useEffect(() => {
-    fetchTickets();
-    fetchAgents();
-  }, [filters, pagination.page]);
-
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
       const response = await ticketsAPI.getTickets({
@@ -53,7 +44,12 @@ const TicketList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, pagination.page, pagination.limit]);
+
+  useEffect(() => {
+    fetchTickets();
+    fetchAgents();
+  }, [fetchTickets]);
 
   const fetchAgents = async () => {
     try {
