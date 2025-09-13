@@ -274,6 +274,34 @@ docker-compose up -d
 
 > **Note**: This deploys only the frontend. You'll need a separate backend API running elsewhere.
 
+### Render Deployment (Backend Only)
+
+#### Web Service Deployment
+1. **Create a PostgreSQL database** on Render first
+2. **Create a new Web Service** on Render
+3. **Configure the service:**
+   - **Root Directory**: `server`
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+   - **Environment Variables**:
+     - `DB_HOST`: Your PostgreSQL database host
+     - `DB_PORT`: `5432`
+     - `DB_NAME`: `smart_it_tracker`
+     - `DB_USER`: Your database username
+     - `DB_PASSWORD`: Your database password
+     - `JWT_SECRET`: Your JWT secret key
+     - `SMTP_HOST`: `smtp.gmail.com`
+     - `SMTP_PORT`: `587`
+     - `SMTP_USER`: Your email
+     - `SMTP_PASS`: Your email password
+     - `OPENAI_API_KEY`: Your OpenAI API key
+     - `NODE_ENV`: `production`
+     - `CLIENT_URL`: `https://your-frontend-url.onrender.com`
+4. **Deploy** - Render will automatically build and deploy your backend
+5. **Run database migration** using Render Shell: `npm run migrate`
+
+**Your backend will be available at**: `https://your-backend-name.onrender.com`
+
 ### Environment Variables for Production
 - Set `NODE_ENV=production`
 - Use strong JWT secrets
